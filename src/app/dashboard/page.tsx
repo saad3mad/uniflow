@@ -29,7 +29,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <div className="brand-gradient rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
             <h3 className="font-heading text-xl text-white">
-              <span className="block">Today's Schedule</span>
+              <span className="block">Today&apos;s Schedule</span>
               <span className="opacity-90 text-sm">Plan • Focus • Execute</span>
             </h3>
             <Clock className="w-4 h-4 text-white/90" />

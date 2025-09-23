@@ -237,7 +237,7 @@ export default function HomePage() {
               <div className="brand-gradient rounded-3xl p-8 text-white">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Today's Schedule</h3>
+                    <h3 className="font-semibold">Today&apos;s Schedule</h3>
                     <Calendar className="w-5 h-5" />
                   </div>
                   
