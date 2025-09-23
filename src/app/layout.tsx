@@ -3,9 +3,9 @@ import { Inter, Montserrat_Alternates, Manrope, IBM_Plex_Sans } from 'next/font/
 import './globals.css'
 import QueryProvider from '../providers/QueryProvider'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import AuthProvider from '../components/AuthProvider'
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
@@ -38,18 +38,17 @@ export const metadata: Metadata = {
   keywords: 'academic management, student platform, course management, assignment tracker, note taking',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${brand.variable} ${heading.variable} ${body.variable} font-body antialiased`}>
         <QueryProvider>
           <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <Footer />
+          <AuthProvider>
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

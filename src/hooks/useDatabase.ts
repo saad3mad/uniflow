@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Semester, Course, Assignment, Note, Event } from '../lib/supabase'
+// import type { Semester, Course, Assignment, Note, Event } from '../lib/supabase'
 
 // Placeholder database hooks - ready for new database provider integration
 // These hooks maintain the same interface but throw errors until a database provider is configured
@@ -33,7 +33,7 @@ export function useUpdateSemester() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Semester> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<any> }) => {
       throw new Error('Database provider not configured')
     },
     onSuccess: () => {
@@ -91,7 +91,7 @@ export function useUpdateCourse() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Course> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<any> }) => {
       throw new Error('Database provider not configured')
     },
     onSuccess: () => {
@@ -150,7 +150,7 @@ export function useUpdateAssignment() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Assignment> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<any> }) => {
       throw new Error('Database provider not configured')
     },
     onSuccess: () => {
@@ -207,7 +207,7 @@ export function useUpdateNote() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Note> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<any> }) => {
       throw new Error('Database provider not configured')
     },
     onSuccess: () => {
@@ -263,7 +263,7 @@ export function useUpdateEvent() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Event> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<any> }) => {
       throw new Error('Database provider not configured')
     },
     onSuccess: () => {

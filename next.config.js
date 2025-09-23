@@ -46,7 +46,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://picsum.photos; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://picsum.photos; connect-src 'self'; font-src 'self'; object-src 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://picsum.photos; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://picsum.photos; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self'; object-src 'none';",
           },
           {
             key: 'X-Content-Type-Options',

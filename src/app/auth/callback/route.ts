@@ -7,6 +7,6 @@ export async function GET(request: NextRequest) {
   console.log('Auth callback called - authentication provider not configured')
   
   return NextResponse.redirect(
-    `${requestUrl.origin}/login?error=auth_not_configured&error_description=Authentication provider not configured`
+    `${requestUrl.origin}/auth/signin?error=auth_not_configured&error_description=Authentication provider not configured`
   )
 }

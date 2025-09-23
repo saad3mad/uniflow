@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Footer from '@/components/Footer'
+import { useAuth } from '@/hooks/useAuth'
 import { 
   BookOpen, 
   Calendar, 
@@ -18,6 +21,8 @@ import {
 } from 'lucide-react'
 
 export default function HomePage() {
+  const { user } = useAuth()
+  const router = useRouter()
   const [isDark, setIsDark] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -78,6 +83,10 @@ export default function HomePage() {
   ]
 
   const chipVariants = ['chip-blue', 'chip-cyan', 'chip-violet']
+
+  useEffect(() => {
+    if (user) router.replace('/dashboard')
+  }, [user, router])
 
   return (
     <div className="bg-background">
@@ -293,7 +302,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      {/* Footer is provided by global layout */}
+      <Footer />
     </div>
   )
 }
