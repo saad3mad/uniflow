@@ -1,18 +1,15 @@
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
-  
-  // Compiler optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  
-  // Bundle analyzer for development
   webpack: (config, { dev, isServer }) => {
-    // Optimize bundle size
     if (!dev && !isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
@@ -20,10 +17,14 @@ const nextConfig = {
       }
     }
     
+    if (config.resolve.plugins) {
+      config.resolve.plugins.push(new TsconfigPathsPlugin());
+    } else {
+      config.resolve.plugins = [new TsconfigPathsPlugin()];
+    }
+    
     return config
   },
-  
-  // Image optimization
   images: {
     formats: ['image/webp', 'image/avif'],
     remotePatterns: [
@@ -34,12 +35,10 @@ const nextConfig = {
         pathname: '/200/300',
       },
     ],
-    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  
-  // Headers for performance and security
   async headers() {
     return [
       {
@@ -75,4 +74,4 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = nextConfig;

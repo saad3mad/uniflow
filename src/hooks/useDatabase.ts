@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Semester, Course, Assignment, Note, Event } from '@/lib/supabase'
+import type { Semester, Course, Assignment, Note, Event } from '../lib/supabase'
 
 // Placeholder database hooks - ready for new database provider integration
 // These hooks maintain the same interface but throw errors until a database provider is configured

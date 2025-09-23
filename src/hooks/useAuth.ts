@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { User, User as DatabaseUser } from '@/lib/supabase'
+import type { User, User as DatabaseUser } from '../lib/supabase'
 
 interface AuthState {
   user: User | null
