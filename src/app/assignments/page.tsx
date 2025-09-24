@@ -3,7 +3,7 @@
 import Card from "../../components/Card";
 import SectionHeader from "../../components/SectionHeader";
 import { CheckSquare, AlertTriangle, Filter, RefreshCcw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Assignment = {
@@ -21,13 +21,13 @@ export default function AssignmentsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function authHeaders(): Promise<HeadersInit> {
+  const authHeaders = useCallback(async (): Promise<HeadersInit> => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
     return token ? { Authorization: `Bearer ${token}` } : {}
-  }
+  }, [])
 
-  async function fetchAssignments() {
+  const fetchAssignments = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -47,14 +47,14 @@ export default function AssignmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [authHeaders])
 
   useEffect(() => {
     fetchAssignments()
-  }, [])
+  }, [fetchAssignments])
 
-  const now = Date.now()
   const groups = useMemo(() => {
+    const now = Date.now()
     const overdue: Assignment[] = []
     const dueSoon: Assignment[] = []
     const completed: Assignment[] = []

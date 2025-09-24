@@ -4,7 +4,7 @@ import Card from "../../components/Card";
 import SectionHeader from "../../components/SectionHeader";
 import { BookOpen, RefreshCcw, Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function CoursesPage() {
@@ -13,13 +13,13 @@ export default function CoursesPage() {
   const [error, setError] = useState<string | null>(null)
   const [courses, setCourses] = useState<any[]>([])
 
-  async function authHeaders(): Promise<HeadersInit> {
+  const authHeaders = useCallback(async (): Promise<HeadersInit> => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
     return token ? { Authorization: `Bearer ${token}` } : {}
-  }
+  }, [])
 
-  async function fetchCourses() {
+  const fetchCourses = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -33,11 +33,11 @@ export default function CoursesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [authHeaders])
 
   useEffect(() => {
     fetchCourses()
-  }, [])
+  }, [fetchCourses])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

@@ -91,18 +91,18 @@ export async function POST(req: NextRequest) {
     for (const cid of courseIds) {
       const contents = await getCourseContents(String(baseUrl), token, cid)
       for (const section of contents || []) {
-        for (const module of section.modules || []) {
+        for (const mod of section.modules || []) {
           contentRows.push({
             user_id: userRes.user.id,
             connection_id: conn.id,
             course_id: cid,
             section_id: section.id ?? null,
             section_name: section.name ?? null,
-            module_id: module.id,
-            module_name: module.name ?? null,
-            modname: module.modname ?? null,
-            url: module.url ?? null,
-            raw: module,
+            module_id: mod.id,
+            module_name: mod.name ?? null,
+            modname: mod.modname ?? null,
+            url: mod.url ?? null,
+            raw: mod,
           })
         }
       }
