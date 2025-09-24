@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { decrypt } from '@/lib/crypto'
 
 // GET /api/moodle/file?module_id=123[&index=0]
 // Streams a Moodle module file to the client using the user's encrypted token, server-side only.
@@ -45,7 +46,6 @@ export async function GET(req: NextRequest) {
   if (!conn) return new Response(JSON.stringify({ error: 'Connection not found' }), { status: 404 })
 
   // Decrypt token server-side
-  const { decrypt } = await import('@/lib/crypto")
   const token = decrypt(conn.token_encrypted)
 
   // Decide which URL to fetch
@@ -88,4 +88,5 @@ export async function GET(req: NextRequest) {
   if (cd) headers.set('content-disposition', cd)
   if (cl) headers.set('content-length', cl)
 
-  return new Response(upstream.body, { status: 200, headers })
+  return new Response(upstream.body as any, { status: 200, headers })
+}
