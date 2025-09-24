@@ -6,7 +6,12 @@ import { createServerClient } from '@/lib/supabase-server'
 export async function GET(req: NextRequest) {
   const supabase = createServerClient({ headers: req.headers })
   const { data: userRes, error: userErr } = await supabase.auth.getUser()
-  if (userErr || !userRes.user) {
+  
+  // Properly validate session before proceeding
+  if (userErr) {
+    return new Response(JSON.stringify({ error: 'Auth error: ' + userErr.message }), { status: 401 })
+  }
+  if (!userRes || !userRes.user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -24,9 +29,10 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userRes.user.id)
     .eq('module_id', moduleId)
     .limit(1)
+  
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  const row = rows?.[0]
-  if (!row) return new Response(JSON.stringify({ error: 'Module not found' }), { status: 404 })
+  if (!rows || rows.length === 0) return new Response(JSON.stringify({ error: 'Module not found' }), { status: 404 })
+  const row = rows[0]
 
   // Get connection for base URL and token
   const { data: conn, error: connErr } = await supabase
@@ -34,12 +40,12 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('id', row.connection_id)
     .maybeSingle()
+    
   if (connErr) return new Response(JSON.stringify({ error: connErr.message }), { status: 500 })
   if (!conn) return new Response(JSON.stringify({ error: 'Connection not found' }), { status: 404 })
 
   // Decrypt token server-side
-  // We import decrypt lazily to keep this route edge-compatible unless needed
-  const { decrypt } = await import('@/lib/crypto')
+  const { decrypt } = await import('@/lib/crypto")
   const token = decrypt(conn.token_encrypted)
 
   // Decide which URL to fetch
@@ -83,4 +89,3 @@ export async function GET(req: NextRequest) {
   if (cl) headers.set('content-length', cl)
 
   return new Response(upstream.body, { status: 200, headers })
-}

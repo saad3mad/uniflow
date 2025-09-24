@@ -1,141 +1,260 @@
-"use client"
+'use client';
 
-import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import SectionHeader from '@/components/SectionHeader'
-import Card from '@/components/Card'
-import { ShieldCheck, RefreshCw, PlugZap } from 'lucide-react'
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { encrypt } from '@/lib/crypto';
+import Card from '@/components/Card';
+import SectionHeader from '@/components/SectionHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function MoodleSettingsPage() {
-  const [baseUrl, setBaseUrl] = useState('')
-  const [mode, setMode] = useState<'token' | 'credentials'>('credentials')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [token, setToken] = useState('')
-  const [privateToken, setPrivateToken] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [connection, setConnection] = useState<any>(null);
 
-  async function withAuthHeaders(): Promise<HeadersInit> {
-    const { data } = await supabase.auth.getSession()
-    const access = data.session?.access_token
-    return access ? { Authorization: `Bearer ${access}` } : {}
-  }
+  // Connection form state
+  const [baseUrl, setBaseUrl] = useState('');
+  const [authMethod, setAuthMethod] = useState('password');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
 
-  async function handleConnect(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setMessage(null)
+  const fetchConnection = async () => {
+    if (!user) return;
+    setLoading(true);
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...(await withAuthHeaders()),
-      }
-      const res = await fetch('/api/moodle/connect', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ baseUrl, username: mode === 'credentials' ? username : undefined, password: mode === 'credentials' ? password : undefined, token: mode === 'token' ? token : undefined, privateToken: privateToken || undefined }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to connect')
+      const { data, error } = await supabase
+        .from('moodle_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-      // auto sync
-      const syncRes = await fetch('/api/moodle/sync', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ baseUrl, verify: true }),
-      })
-      const syncJson = await syncRes.json()
-      if (!syncRes.ok || !syncJson.ok) throw new Error(syncJson.error || 'Sync failed')
-
-      setMessage(`Connected and synced: ${syncJson.counts.courses} courses, ${syncJson.counts.assignments} assignments`)
-    } catch (err: any) {
-      setMessage(err.message)
+      if (error) throw error;
+      setConnection(data || null);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  async function handleReverify() {
-    setLoading(true)
-    setMessage(null)
+  const verifyMoodle = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...(await withAuthHeaders()),
+      // 1. Get Moodle token
+      let moodleToken = token;
+      if (authMethod === 'password') {
+        const res = await fetch(`/api/moodle/token?baseUrl=${encodeURIComponent(baseUrl)}&username=${username}&password=${password}`);
+        const json = await res.json();
+        if (!res.ok || !json.token) throw new Error(json.error || 'Failed to get token');
+        moodleToken = json.token;
       }
-      const res = await fetch('/api/moodle/verify', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ baseUrl }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.ok) throw new Error(json.error || 'Re-verify failed')
-      setMessage(`Verified for user ${json.site?.username}`)
-    } catch (err: any) {
-      setMessage(err.message)
+
+      // 2. Verify token works
+      const verifyRes = await fetch(`/api/moodle/verify?baseUrl=${encodeURIComponent(baseUrl)}&token=${moodleToken}`);
+      const verifyJson = await verifyRes.json();
+      if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error || 'Token verification failed');
+
+      // 3. Store encrypted token
+      const encryptedToken = encrypt(moodleToken);
+      const { error } = await supabase.from('moodle_connections').upsert({
+        user_id: user.id,
+        moodle_base_url: baseUrl,
+        token_encrypted: encryptedToken,
+        status: 'active',
+        last_verified_at: new Date().toISOString(),
+        ...(connection?.id && { id: connection.id })
+      });
+
+      if (error) throw error;
+
+      setSuccess('Successfully connected to Moodle!');
+      fetchConnection();
+    } catch (e: any) {
+      setError(e.message || 'Connection failed');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const handleSync = async () => {
+    if (!user || !connection) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/moodle/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verify: true })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Sync failed');
+
+      setSuccess(`Synced: ${json.counts?.courses || 0} courses, ${json.counts?.assignments || 0} assignments`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
+  useState(() => { fetchConnection(); });
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <SectionHeader
-        eyebrow={<span className="inline-flex items-center gap-2"><PlugZap className="w-4 h-4" /> Moodle Integration</span>}
-        title="Connect your eClass account"
-        subtitle="Securely connect your Moodle-based eClass to import courses, assignments, and materials."
+        title="Moodle/eClass Integration"
+        subtitle="Connect your academic accounts to sync courses and assignments"
       />
 
-      <Card>
-        <form onSubmit={handleConnect} className="space-y-6">
+      <Card className="mb-8">
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Connection Form */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Moodle Base URL</label>
-            <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} required placeholder="https://eclass.youruniversity.edu/" className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border focus-ring" />
-          </div>
+            <h3 className="font-heading text-lg text-text-primary mb-4">
+              {connection ? 'Update Connection' : 'Connect Account'}
+            </h3>
 
-          <div className="flex items-center gap-4">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" checked={mode === 'credentials'} onChange={() => setMode('credentials')} /> Username & Password
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" checked={mode === 'token'} onChange={() => setMode('token')} /> Existing Token
-            </label>
-          </div>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="baseUrl">Moodle/eClass Base URL</Label>
+                <Input
+                  id="baseUrl"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://your-school.moodle.org"
+                />
+              </div>
 
-          {mode === 'credentials' ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-text-secondary mb-1">Moodle Username</label>
-                <input value={username} onChange={e => setUsername(e.target.value)} required className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border focus-ring" />
-              </div>
-              <div>
-                <label className="block text-sm text-text-secondary mb-1">Moodle Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border focus-ring" />
-              </div>
+              <RadioGroup value={authMethod} onValueChange={setAuthMethod} className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="password" id="r1" />
+                  <Label htmlFor="r1">Username & Password</Label>
+                </div>
+                {authMethod === 'password' && (
+                  <div className="ml-6 space-y-3">
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Username"
+                    />
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="token" id="r2" />
+                  <Label htmlFor="r2">Use Existing Token</Label>
+                </div>
+                {authMethod === 'token' && (
+                  <div className="ml-6">
+                    <Input
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="Moodle API Token"
+                    />
+                  </div>
+                )}
+              </RadioGroup>
+
+              <Button 
+                onClick={verifyMoodle}
+                disabled={loading}
+                className="w-full"
+              >
+                {connection ? 'Update Connection' : 'Connect to Moodle'}
+              </Button>
             </div>
-          ) : (
-            <div>
-              <label className="block text-sm text-text-secondary mb-1">Moodle Token</label>
-              <input value={token} onChange={e => setToken(e.target.value)} required className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border focus-ring" />
+          </div>
+
+          {/* Connection Status */}
+          <div>
+            <h3 className="font-heading text-lg text-text-primary mb-4">
+              Connection Status
+            </h3>
+
+            {connection ? (
+              <div className="space-y-4">
+                <div className="flex items-center text-green-500">
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  <span>Connected to {connection.moodle_base_url}</span>
+                </div>
+
+                <div className="text-sm text-text-secondary">
+                  <p>Last verified: {new Date(connection.last_verified_at).toLocaleString()}</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={verifyMoodle}
+                    disabled={loading}
+                    className="mt-3"
+                  >
+                    Re-verify Connection
+                  </Button>
+                </div>
+
+                <div className="pt-4">
+                  <Button 
+                    onClick={handleSync}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sync Now
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center text-yellow-500">
+                <AlertCircle className="mr-2 h-5 w-5" />
+                <span>No active Moodle connection</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="mt-6">
+          {error && (
+            <div className="text-red-500 text-sm p-3 bg-red-50 rounded-lg">
+              {error}
             </div>
           )}
-
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">Private Token (optional)</label>
-            <input value={privateToken} onChange={e => setPrivateToken(e.target.value)} placeholder="Optional private token" className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border focus-ring" />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button disabled={loading} className="btn-primary inline-flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> {loading ? 'Connecting…' : 'Connect & Sync'}</button>
-            <button type="button" disabled={loading} onClick={handleReverify} className="btn-secondary inline-flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Re-verify</button>
-          </div>
-
-          {message && (
-            <div className="text-sm text-text-secondary">{message}</div>
+          {success && (
+            <div className="text-green-500 text-sm p-3 bg-green-50 rounded-lg">
+              {success}
+            </div>
           )}
-        </form>
+        </div>
       </Card>
+
+      <div className="text-sm text-text-secondary">
+        <p className="mb-2">How to find your Moodle token:</p>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>Log in to your Moodle/eClass account</li>
+          <li>Go to Preferences → Security keys</li>
+          <li>Generate a new token or use an existing one</li>
+        </ol>
+      </div>
     </div>
-  )
+  );
 }
