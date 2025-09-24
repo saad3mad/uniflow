@@ -5,6 +5,7 @@ import Brand from "./Brand";
 import ThemeToggle from "./ThemeToggle";
 import { Menu, X, RefreshCcw } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
@@ -14,6 +15,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const onScroll = () => {
@@ -42,7 +44,11 @@ export default function Navbar() {
         .order('created_at', { ascending: true })
         .limit(1);
       if (error) throw error;
-      if (!conns || conns.length === 0) throw new Error('No active Moodle connection');
+      if (!conns || conns.length === 0) {
+        setSyncMsg('No active Moodle connection. Redirecting to connect…')
+        router.push('/settings/moodle')
+        return
+      }
 
       const baseUrl = conns[0].moodle_base_url as string;
       const res = await fetch('/api/moodle/sync', {
