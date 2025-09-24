@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { encrypt } from '@/lib/crypto';
@@ -18,14 +18,14 @@ export default function MoodleSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [connection, setConnection] = useState<any>(null);
-
+  
   // Connection form state
   const [baseUrl, setBaseUrl] = useState('');
   const [authMethod, setAuthMethod] = useState('password');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
-
+  
   const fetchConnection = async () => {
     if (!user) return;
     setLoading(true);
@@ -36,7 +36,7 @@ export default function MoodleSettingsPage() {
         .eq('user_id', user.id)
         .eq('status', 'active')
         .maybeSingle();
-
+        
       if (error) throw error;
       setConnection(data || null);
     } catch (e: any) {
@@ -51,7 +51,7 @@ export default function MoodleSettingsPage() {
     setLoading(true);
     setError(null);
     setSuccess(null);
-
+    
     try {
       // 1. Get Moodle token
       let moodleToken = token;
@@ -61,12 +61,12 @@ export default function MoodleSettingsPage() {
         if (!res.ok || !json.token) throw new Error(json.error || 'Failed to get token');
         moodleToken = json.token;
       }
-
+      
       // 2. Verify token works
       const verifyRes = await fetch(`/api/moodle/verify?baseUrl=${encodeURIComponent(baseUrl)}&token=${moodleToken}`);
       const verifyJson = await verifyRes.json();
       if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error || 'Token verification failed');
-
+      
       // 3. Store encrypted token
       const encryptedToken = encrypt(moodleToken);
       const { error } = await supabase.from('moodle_connections').upsert({
@@ -77,9 +77,9 @@ export default function MoodleSettingsPage() {
         last_verified_at: new Date().toISOString(),
         ...(connection?.id && { id: connection.id })
       });
-
+      
       if (error) throw error;
-
+      
       setSuccess('Successfully connected to Moodle!');
       fetchConnection();
     } catch (e: any) {
@@ -88,22 +88,22 @@ export default function MoodleSettingsPage() {
       setLoading(false);
     }
   };
-
+  
   const handleSync = async () => {
     if (!user || !connection) return;
     setLoading(true);
     setError(null);
-
+    
     try {
       const res = await fetch('/api/moodle/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verify: true })
       });
-
+      
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Sync failed');
-
+      
       setSuccess(`Synced: ${json.counts?.courses || 0} courses, ${json.counts?.assignments || 0} assignments`);
     } catch (e: any) {
       setError(e.message);
@@ -113,7 +113,9 @@ export default function MoodleSettingsPage() {
   };
 
   // Initial load
-  useState(() => { fetchConnection(); });
+  useEffect(() => {
+    if (user) fetchConnection();
+  }, [user]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -121,7 +123,7 @@ export default function MoodleSettingsPage() {
         title="Moodle/eClass Integration"
         subtitle="Connect your academic accounts to sync courses and assignments"
       />
-
+      
       <Card className="mb-8">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Connection Form */}
@@ -129,7 +131,7 @@ export default function MoodleSettingsPage() {
             <h3 className="font-heading text-lg text-text-primary mb-4">
               {connection ? 'Update Connection' : 'Connect Account'}
             </h3>
-
+            
             <div className="space-y-4">
               <div>
                 <Label htmlFor="baseUrl">Moodle/eClass Base URL</Label>
@@ -140,7 +142,7 @@ export default function MoodleSettingsPage() {
                   placeholder="https://your-school.moodle.org"
                 />
               </div>
-
+              
               <RadioGroup value={authMethod} onValueChange={setAuthMethod} className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="password" id="r1" />
@@ -176,7 +178,7 @@ export default function MoodleSettingsPage() {
                   </div>
                 )}
               </RadioGroup>
-
+              
               <Button 
                 onClick={verifyMoodle}
                 disabled={loading}
@@ -186,20 +188,20 @@ export default function MoodleSettingsPage() {
               </Button>
             </div>
           </div>
-
+          
           {/* Connection Status */}
           <div>
             <h3 className="font-heading text-lg text-text-primary mb-4">
               Connection Status
             </h3>
-
+            
             {connection ? (
               <div className="space-y-4">
                 <div className="flex items-center text-green-500">
                   <CheckCircle2 className="mr-2 h-5 w-5" />
                   <span>Connected to {connection.moodle_base_url}</span>
                 </div>
-
+                
                 <div className="text-sm text-text-secondary">
                   <p>Last verified: {new Date(connection.last_verified_at).toLocaleString()}</p>
                   <Button 
@@ -211,7 +213,7 @@ export default function MoodleSettingsPage() {
                     Re-verify Connection
                   </Button>
                 </div>
-
+                
                 <div className="pt-4">
                   <Button 
                     onClick={handleSync}
@@ -231,7 +233,7 @@ export default function MoodleSettingsPage() {
             )}
           </div>
         </div>
-
+        
         {/* Messages */}
         <div className="mt-6">
           {error && (
@@ -246,7 +248,7 @@ export default function MoodleSettingsPage() {
           )}
         </div>
       </Card>
-
+      
       <div className="text-sm text-text-secondary">
         <p className="mb-2">How to find your Moodle token:</p>
         <ol className="list-decimal pl-5 space-y-1">
