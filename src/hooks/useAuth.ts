@@ -14,19 +14,26 @@ export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
-    loading: false
+    loading: true
   })
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setState({
-          user: session?.user || null,
-          profile: null,
-          loading: false
-        })
-      }
-    );
+    // Load current session on mount to prevent redirect flashes/loops
+    supabase.auth.getSession().then(({ data }) => {
+      setState((prev) => ({
+        ...prev,
+        user: data.session?.user ?? null,
+        loading: false,
+      }))
+    })
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setState({
+        user: session?.user || null,
+        profile: null,
+        loading: false,
+      })
+    })
 
     return () => authListener.subscription.unsubscribe();
   }, [])
@@ -43,21 +50,13 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        // Pass profile data so your DB trigger can use raw_user_meta_data->>'full_name'
+        data: { full_name: fullName },
+      },
     });
     if (error) throw error;
-
-    // Persist basic profile data
-    const userId = data.user?.id
-    if (userId) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({ id: userId, full_name: fullName, email })
-        .single()
-      if (profileError) {
-        // Not fatal for sign up, but surface to caller
-        throw profileError
-      }
-    }
+    return data;
   };
 
   const signInWithGoogle = async () => {

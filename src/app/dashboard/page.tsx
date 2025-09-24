@@ -8,15 +8,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [fullName, setFullName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    // Avoid redirect loop by waiting until auth loading is complete
+    if (!loading && !user) {
       router.replace("/auth/signin");
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -42,7 +43,7 @@ export default function DashboardPage() {
     { title: "Quiz: Trees", due: "Wed", course: "CS101" },
   ];
 
-  if (!user) return null;
+  if (loading || !user) return null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
