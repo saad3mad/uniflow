@@ -4,6 +4,7 @@ import Card from "../../components/Card";
 import SectionHeader from "../../components/SectionHeader";
 import { CheckSquare, AlertTriangle, Filter, RefreshCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type Assignment = {
@@ -76,13 +77,15 @@ export default function AssignmentsPage() {
         </div>
         <div className="space-y-4">
           {items.map((a) => (
-            <div key={a.assignment_id} className="flex items-start justify-between">
-              <div>
-                <div className="font-medium text-text-primary">{a.name}</div>
-                <div className="text-sm text-text-secondary">Course #{a.course_id}{a.duedate ? ` • Due ${new Date(a.duedate).toLocaleString()}` : ''}</div>
+            <Link key={a.assignment_id} href={`/assignments/${a.assignment_id}`} className="block">
+              <div className="flex items-start justify-between hover:bg-background-secondary p-2 rounded-lg transition">
+                <div>
+                  <div className="font-medium text-text-primary">{a.name}</div>
+                  <div className="text-sm text-text-secondary">Course #{a.course_id}{a.duedate ? ` • Due ${new Date(a.duedate).toLocaleString()}` : ''}</div>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full border border-border text-text-secondary">{a.status || '—'}</span>
               </div>
-              <span className="text-xs px-2 py-1 rounded-full border border-border text-text-secondary">{a.status || '—'}</span>
-            </div>
+            </Link>
           ))}
           {(!loading && items.length === 0) && (
             <div className="text-sm text-text-secondary">No items</div>

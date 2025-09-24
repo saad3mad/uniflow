@@ -2,10 +2,11 @@
 
 import Card from "../../../components/Card";
 import SectionHeader from "../../../components/SectionHeader";
-import { BookOpen, FileText, ListChecks, RefreshCcw } from "lucide-react";
+import { BookOpen, FileText, ListChecks, RefreshCcw, Check } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams } from "next/navigation";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export default function CourseDetailPage() {
   const params = useParams<{ courseId: string }>()
@@ -103,12 +104,28 @@ export default function CourseDetailPage() {
                   <FileText className="w-4 h-4 text-text-secondary" />
                 </div>
                 <div className="space-y-3">
-                  {mods.map((m) => (
-                    <a key={m.module_id} href={m.url || '#'} target="_blank" rel="noreferrer" className="block p-3 rounded-lg border border-border hover:bg-background-secondary transition">
-                      <div className="font-medium text-text-primary">{m.module_name || m.modname || 'Resource'}</div>
-                      <div className="text-sm text-text-secondary">{m.modname} • Module #{m.module_id}</div>
-                    </a>
-                  ))}
+                  {mods.map((m) => {
+                    const proxyHref = `/api/moodle/file?module_id=${m.module_id}`
+                    const desc = m.raw?.description || m.raw?.intro || ''
+                    const safe = sanitizeHtml(String(desc || ''))
+                    return (
+                      <div key={m.module_id} className="p-3 rounded-lg border border-border">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-text-primary">{m.module_name || m.modname || 'Resource'}</div>
+                            <div className="text-sm text-text-secondary">{m.modname} • Module #{m.module_id}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a href={proxyHref} className="btn-secondary text-sm">Open</a>
+                            <button className="btn-secondary text-sm inline-flex items-center gap-1"><Check className="w-4 h-4"/>Mark as read</button>
+                          </div>
+                        </div>
+                        {safe && (
+                          <div className="prose prose-invert mt-3 text-sm" dangerouslySetInnerHTML={{ __html: safe }} />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </Card>
             )
