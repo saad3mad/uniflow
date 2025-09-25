@@ -17,6 +17,7 @@ export default function MoodleSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [connection, setConnection] = useState<any>(null);
+  const [connLoading, setConnLoading] = useState(false);
   
   // Connection form state
   const [baseUrl, setBaseUrl] = useState('');
@@ -27,21 +28,21 @@ export default function MoodleSettingsPage() {
   
   const fetchConnection = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    setConnLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('moodle_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
-        
-      if (error) throw error;
-      setConnection(data || null);
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (!accessToken) { setConnection(null); return; }
+      const res = await fetch('/api/moodle/connection', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to load connection');
+      setConnection(json.connection || null);
     } catch (e: any) {
       setError(e.message);
     } finally {
-      setLoading(false);
+      setConnLoading(false);
     }
   }, [user]);
 
@@ -202,7 +203,9 @@ export default function MoodleSettingsPage() {
               Connection Status
             </h3>
             
-            {connection ? (
+            {connLoading ? (
+              <div className="text-sm text-text-secondary">Checking connection…</div>
+            ) : connection ? (
               <div className="space-y-4">
                 <div className="flex items-center text-green-500">
                   <CheckCircle2 className="mr-2 h-5 w-5" />
