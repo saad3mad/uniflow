@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { encrypt } from '@/lib/crypto';
 import Card from '@/components/Card';
 import SectionHeader from '@/components/SectionHeader';
 import { Button } from '@/components/UI/button';
@@ -67,18 +66,14 @@ export default function MoodleSettingsPage() {
       const verifyJson = await verifyRes.json();
       if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error || 'Token verification failed');
       
-      // 3. Store encrypted token
-      const encryptedToken = encrypt(moodleToken);
-      const { error } = await supabase.from('moodle_connections').upsert({
-        user_id: user.id,
-        moodle_base_url: baseUrl,
-        token_encrypted: encryptedToken,
-        status: 'active',
-        last_verified_at: new Date().toISOString(),
-        ...(connection?.id && { id: connection.id })
-      });
-      
-      if (error) throw error;
+      // 3. Store token securely via server API (encrypts server-side)
+      const saveRes = await fetch('/api/moodle/save-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl, token: moodleToken, id: connection?.id })
+      })
+      const saveJson = await saveRes.json()
+      if (!saveRes.ok || !saveJson.ok) throw new Error(saveJson.error || 'Failed to save connection')
       
       setSuccess('Successfully connected to Moodle!');
       fetchConnection();

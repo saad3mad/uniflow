@@ -43,8 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${brand.variable} ${heading.variable} ${body.variable} font-body antialiased`}>
         <QueryProvider>
-          <Navbar />
           <AuthProvider>
+            <Navbar />
             <main className="min-h-screen">
               {children}
             </main>
