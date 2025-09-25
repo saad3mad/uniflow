@@ -67,9 +67,15 @@ export default function MoodleSettingsPage() {
       if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error || 'Token verification failed');
       
       // 3. Store token securely via server API (encrypts server-side)
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
       const saveRes = await fetch('/api/moodle/save-connection', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ baseUrl, token: moodleToken, id: connection?.id })
       })
       const saveJson = await saveRes.json()
@@ -90,9 +96,15 @@ export default function MoodleSettingsPage() {
     setError(null);
     
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
       const res = await fetch('/api/moodle/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ verify: true })
       });
       
