@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { encrypt } from '@/lib/crypto';
 import Card from '@/components/Card';
 import SectionHeader from '@/components/SectionHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Button } from '@/components/UI/button';
+import { Input } from '@/components/UI/input';
+import { Label } from '@/components/UI/label';
+import { RadioGroup, RadioGroupItem } from '@/components/UI/radio-group';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function MoodleSettingsPage() {
@@ -26,7 +26,7 @@ export default function MoodleSettingsPage() {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
   
-  const fetchConnection = async () => {
+  const fetchConnection = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -44,7 +44,7 @@ export default function MoodleSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const verifyMoodle = async () => {
     if (!user) return;
@@ -115,7 +115,7 @@ export default function MoodleSettingsPage() {
   // Initial load
   useEffect(() => {
     if (user) fetchConnection();
-  }, [user]);
+  }, [user, fetchConnection]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

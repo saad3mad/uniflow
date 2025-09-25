@@ -30,14 +30,14 @@ export function RadioGroup({
   const isControlled = value !== undefined;
   const current = isControlled ? value : internal;
 
-  const handleChange = (v: string) => {
+  const handleChange = React.useCallback((v: string) => {
     if (!isControlled) setInternal(v);
     onValueChange?.(v);
-  };
+  }, [isControlled, onValueChange]);
 
   const contextValue = React.useMemo(
     () => ({ value: current, onValueChange: handleChange, name: name || `rg-${Math.random().toString(36).slice(2)}` }),
-    [current, name]
+    [current, name, handleChange]
   );
 
   return (

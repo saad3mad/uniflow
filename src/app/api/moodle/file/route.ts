@@ -88,5 +88,5 @@ export async function GET(req: NextRequest) {
   if (cd) headers.set('content-disposition', cd)
   if (cl) headers.set('content-length', cl)
 
-  return new Response(upstream.body as any, { status: 200, headers })
+  return new Response(upstream.body, { status: 200, headers })
 }

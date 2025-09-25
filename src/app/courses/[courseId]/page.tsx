@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useParams } from "next/navigation";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/UI/use-toast";
 
 export default function CourseDetailPage() {
   const { user } = useAuth();
