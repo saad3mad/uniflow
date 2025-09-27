@@ -4,6 +4,7 @@ import './globals.css'
 import QueryProvider from '../providers/QueryProvider'
 import Navbar from '../components/Navbar'
 import AuthProvider from '../components/AuthProvider'
+import Toaster from '../components/UI/Toaster'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="min-h-screen">
               {children}
             </main>
+            <Toaster />
           </AuthProvider>
         </QueryProvider>
       </body>

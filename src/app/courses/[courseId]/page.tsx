@@ -1,186 +1,185 @@
-"use client"
+"use client";
 
-import Card from "../../../components/Card";
-import SectionHeader from "../../../components/SectionHeader";
-import { BookOpen, FileText, ListChecks, RefreshCcw, Check, Download } from "lucide-react";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { sanitizeHtml } from "@/lib/sanitize";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/UI/use-toast";
 
+interface ContentItem {
+  userId: string;
+  connectionId: string;
+  courseId: number;
+  sectionId?: number;
+  sectionName?: string;
+  moduleId?: number;
+  moduleName?: string;
+  modname?: string;
+  url?: string;
+}
+
 export default function CourseDetailPage() {
+  const params = useParams();
+  const courseId = useMemo(() => Number(params?.courseId), [params]);
   const { user } = useAuth();
   const { toast } = useToast();
-  const params = useParams<{ courseId: string }>()
-  const courseId = Number(params?.courseId)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [course, setCourse] = useState<any | null>(null)
-  const [assignments, setAssignments] = useState<any[]>([])
-  const [materials, setMaterials] = useState<any[]>([])
+  const [items, setItems] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
-  // Group materials by section
-  const sections = useMemo(() => {
-    const groups = new Map<string, any[]>();
-    materials.forEach(m => {
-      const key = `${m.section_id}::${m.section_name}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)?.push(m);
-    });
-    return Array.from(groups.entries());
-  }, [materials]);
-
-  const handleDownload = useCallback(async (moduleId: number) => {
-    if (!user) return;
-    
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not authenticated");
-      
-      const res = await fetch(`/api/moodle/file?module_id=${moduleId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to download: ${res.status} ${text}`);
-      }
-      
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      
-      // Create temporary link to trigger download
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "file";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      console.error("Download error:", err);
-      toast({
-        title: 'Download failed',
-        description: err.message || "Couldn't download file",
-        variant: 'destructive'
-      });
-    }
-  }, [user, toast]);
-
-  const handleMarkRead = useCallback(async (moduleId: number, courseId: number) => {
-    if (!user) return;
-    
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not authenticated");
-      
-      const res = await fetch('/api/moodle/mark-read', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ moduleId, courseId })
-      });
-      
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || 'Mark as read failed');
-      
-      toast({
-        title: 'Marked as read',
-        description: 'Your progress has been saved',
-      });
-    } catch (err: any) {
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to mark as read',
-        variant: 'destructive'
-      });
-    }
-  }, [user, toast]);
-
-  // Load course data
   useEffect(() => {
-    async function load() {
-      if (!courseId) return;
+    if (!user || !courseId) return;
+    (async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        // Fetch course, assignments, materials from Supabase
-        // (Your existing data loading logic here)
+        const { data, error } = await supabase.functions.invoke("moodle-contents", {
+          body: { courseId },
+        });
+        if (error) throw error;
+        setItems((data?.data as ContentItem[]) || []);
       } catch (e: any) {
-        setError(e.message);
+        setError(e.message || "Failed to load course contents");
+        toast({ title: "Failed to load", description: e.message || "", variant: "destructive" });
       } finally {
         setLoading(false);
       }
+    })();
+  }, [user, courseId]);
+
+  async function handleSync() {
+    if (!user) return;
+    setSyncing(true);
+    setError(null);
+    try {
+      const { error: syncError } = await supabase.functions.invoke("moodle-sync", {
+        body: { verify: true },
+      });
+      if (syncError) throw syncError;
+      const { data, error } = await supabase.functions.invoke("moodle-contents", {
+        body: { courseId },
+      });
+      if (error) throw error;
+      setItems((data?.data as ContentItem[]) || []);
+      toast({ title: "Synced", description: "Course contents updated." });
+    } catch (e: any) {
+      setError(e.message || "Sync failed");
+      toast({ title: "Sync failed", description: e.message || "", variant: "destructive" });
+    } finally {
+      setSyncing(false);
     }
-    
-    load();
-  }, [courseId]);
+  }
+
+  async function openInBrowser(it: ContentItem) {
+    if (!user || !it.moduleId) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("moodle-files", {
+        body: { moduleId: it.moduleId, action: "open" },
+      });
+      if (error) throw error;
+      const url = (data as any)?.url as string | undefined;
+      if (url) window.open(url, "_blank");
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Open failed", description: (e as any)?.message || "", variant: "destructive" });
+    }
+  }
+
+  async function downloadFile(it: ContentItem) {
+    if (!user || !it.moduleId) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("moodle-files", {
+        body: { moduleId: it.moduleId, action: "download" },
+      });
+      if (error) throw error;
+      const url = (data as any)?.url as string | undefined;
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${it.moduleName || `file-${it.moduleId}`}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast({ title: "Download started" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Download failed", description: (e as any)?.message || "", variant: "destructive" });
+    }
+  }
+
+  const grouped = useMemo(() => {
+    const map = new Map<number, ContentItem[]>();
+    for (const it of items) {
+      const key = it.sectionId || 0;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(it);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
+  }, [items]);
+
+  if (!user) {
+    return (
+      <div className="max-w-5xl mx-auto p-6">
+        <h1 className="text-2xl font-semibold mb-4">Course</h1>
+        <p className="text-text-secondary">Please sign in to view this course.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Course header */}
-      <SectionHeader
-        title={course?.fullname || `Course #${courseId}`}
-        subtitle={course?.summary ? course.summary : ''}
-      />
-      
-      {/* Course content */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Materials list */}
-        <div className="lg:col-span-2 space-y-6">
-          {sections.map(([key, mods]) => {
-            const [, secName] = key.split('::');
-            return (
-              <Card key={key}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-heading text-xl text-text-primary">{secName || 'Section'}</h3>
-                  <FileText className="w-4 h-4 text-text-secondary" />
-                </div>
-                <div className="space-y-3">
-                  {mods.map((m) => {
-                    const desc = m.raw?.description || m.raw?.intro || '';
-                    const safe = sanitizeHtml(String(desc || ''));
-                    return (
-                      <div key={m.module_id} className="p-3 rounded-lg border border-border">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-text-primary">{m.module_name || m.modname || 'Resource'}</div>
-                            <div className="text-sm text-text-secondary">{m.modname} • Module #{m.module_id}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => handleDownload(m.module_id)}
-                              className="btn-secondary text-sm inline-flex items-center gap-1"
-                            >
-                              <Download className="w-4 h-4" /> Download
-                            </button>
-                            <button 
-                              onClick={() => handleMarkRead(m.module_id, m.course_id)}
-                              className="btn-secondary text-sm inline-flex items-center gap-1"
-                            >
-                              <Check className="w-4 h-4"/> Mark as read
-                            </button>
-                          </div>
-                        </div>
-                        {safe && (
-                          <div className="prose prose-invert mt-3 text-sm" dangerouslySetInnerHTML={{ __html: safe }} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+    <div className="max-w-5xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Course {courseId}</h1>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="btn-secondary inline-flex items-center gap-2"
+          aria-label="Sync course contents from Moodle"
+          aria-busy={syncing}
+        >
+          {syncing && (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+          )}
+          {syncing ? "Syncing…" : "Sync Now"}
+        </button>
       </div>
+
+      {error && <div className="text-red-500 mb-4 text-sm">{error}</div>}
+
+      {loading ? (
+        <div className="text-text-secondary">Loading…</div>
+      ) : grouped.length === 0 ? (
+        <div className="text-text-secondary">No contents found. Try syncing or revisiting later.</div>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(([sectionId, arr]) => (
+            <div key={sectionId} className="border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-2 bg-background-secondary font-medium">
+                {arr[0]?.sectionName || `Section ${sectionId}`}
+              </div>
+              <div className="divide-y divide-border">
+                {arr.map((it) => (
+                  <div key={it.moduleId} className="flex items-center justify-between px-4 py-3 hover:bg-background-tertiary transition-colors">
+                    <div className="truncate pr-4">
+                      <div className="font-medium truncate">{it.moduleName || it.modname || `Module ${it.moduleId}`}</div>
+                      {it.url && <div className="text-xs text-text-secondary truncate">{it.url}</div>}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => openInBrowser(it)} className="btn-secondary">Open</button>
+                      <button onClick={() => downloadFile(it)} className="btn-primary">Download</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

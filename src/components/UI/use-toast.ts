@@ -1,7 +1,6 @@
 "use client";
 
-// Minimal toast utility to satisfy imports and provide basic UX.
-// You can replace this later with a full-featured toast system (e.g., sonner or shadcn/ui toast).
+// Minimal toast utility wired to Toaster via a custom event.
 
 export type ToastVariant = "default" | "destructive";
 
@@ -14,10 +13,9 @@ export type ToastOptions = {
 
 export function useToast() {
   function toast({ title, description, variant }: ToastOptions) {
-    const prefix = variant === "destructive" ? "[Error] " : "";
     if (typeof window !== "undefined") {
-      // Very basic fallback; replace with a real toast UI if desired.
-      window.console[(variant === "destructive" ? "error" : "log")](`${prefix}${title ?? ""} ${description ?? ""}`.trim());
+        const ev = new CustomEvent("app:toast", { detail: { title, description, variant } });
+        window.dispatchEvent(ev as any);
     }
   }
 
