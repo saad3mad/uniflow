@@ -46,7 +46,19 @@ export default function CourseDetailPage() {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (error) throw error;
-        setItems((data?.data as ContentItem[]) || []);
+        const raw = ((data as any)?.data as any[]) ?? [];
+        const normalized: ContentItem[] = raw.map((row) => ({
+          userId: row.user_id,
+          connectionId: row.connection_id,
+          courseId: Number(row.course_id),
+          sectionId: row.section_id ?? undefined,
+          sectionName: row.section_name ?? undefined,
+          moduleId: row.module_id ?? undefined,
+          moduleName: row.module_name ?? undefined,
+          modname: row.modname ?? undefined,
+          url: row.url ?? undefined,
+        }));
+        setItems(normalized);
       } catch (e: any) {
         setError(e.message || "Failed to load course contents");
         toast({ title: "Failed to load", description: e.message || "", variant: "destructive" });
@@ -78,7 +90,19 @@ export default function CourseDetailPage() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
-      setItems((data?.data as ContentItem[]) || []);
+      const raw = ((data as any)?.data as any[]) ?? [];
+      const normalized: ContentItem[] = raw.map((row) => ({
+        userId: row.user_id,
+        connectionId: row.connection_id,
+        courseId: Number(row.course_id),
+        sectionId: row.section_id ?? undefined,
+        sectionName: row.section_name ?? undefined,
+        moduleId: row.module_id ?? undefined,
+        moduleName: row.module_name ?? undefined,
+        modname: row.modname ?? undefined,
+        url: row.url ?? undefined,
+      }));
+      setItems(normalized);
       toast({ title: "Synced", description: "Course contents updated." });
     } catch (e: any) {
       setError(e.message || "Sync failed");

@@ -36,7 +36,16 @@ export default function CoursesPage() {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (error) throw error;
-        setCourses((data?.data as Course[]) || []);
+        const raw = ((data as any)?.data as any[]) ?? [];
+        const normalized: Course[] = raw.map((row) => ({
+          userId: row.user_id,
+          connectionId: row.connection_id,
+          courseId: Number(row.course_id),
+          fullname: row.fullname ?? "",
+          shortname: row.shortname ?? undefined,
+          progress: typeof row.progress === "number" ? row.progress : undefined,
+        }));
+        setCourses(normalized);
       } catch (e: any) {
         setError(e.message || "Failed to load courses");
         toast({ title: "Failed to load courses", description: e.message || "", variant: "destructive" });
@@ -63,7 +72,16 @@ export default function CoursesPage() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
-      setCourses((data?.data as Course[]) || []);
+      const raw = ((data as any)?.data as any[]) ?? [];
+      const normalized: Course[] = raw.map((row) => ({
+        userId: row.user_id,
+        connectionId: row.connection_id,
+        courseId: Number(row.course_id),
+        fullname: row.fullname ?? "",
+        shortname: row.shortname ?? undefined,
+        progress: typeof row.progress === "number" ? row.progress : undefined,
+      }));
+      setCourses(normalized);
       toast({ title: "Synced", description: "Courses updated." });
     } catch (e: any) {
       setError(e.message || "Sync failed");
