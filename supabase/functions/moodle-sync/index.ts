@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     // Find active connection
     const { data: connections, error: connErr } = await supabaseUser
       .from("moodle_connections")
-      .select("id, user_id, moodle_base_url, token_encrypted, private_token_encrypted, token_cipher, token_nonce")
+      .select("id, user_id, moodle_base_url, token_cipher, token_nonce")
       .eq("status", "active")
       .order("created_at", { ascending: true })
       .limit(1);

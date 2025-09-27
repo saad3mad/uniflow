@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
 
     // Encrypt tokens
     const aesKey = await importAesGcmKey(MOODLE_TOKEN_ENC_KEY);
-    const tokenEncrypted = await encryptAesGcm(aesKey, token);
-    const privateTokenEncrypted = privatetoken ? await encryptAesGcm(aesKey, privatetoken) : null;
+    const tokenCipher = await encryptAesGcm(aesKey, token);
+    const privateTokenCipher = privatetoken ? await encryptAesGcm(aesKey, privatetoken) : null;
 
     // Get current user id from the provided JWT
     const { data: userInfo, error: userErr } = await supabase.auth.getUser();
@@ -98,8 +98,8 @@ Deno.serve(async (req) => {
       {
         user_id: userId,
         moodle_base_url: baseUrl.replace(/\/$/, ""),
-        token_encrypted: tokenEncrypted,
-        private_token_encrypted: privateTokenEncrypted,
+        token_cipher: tokenCipher,
+        token_nonce: null,
         status: "active",
         last_verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
