@@ -30,9 +30,9 @@ jobs:
       - name: Set function secrets
         run: |
           supabase secrets set MOODLE_TOKEN_ENC_KEY="${{ secrets.MOODLE_TOKEN_ENC_KEY }}"
-          supabase secrets set SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          supabase secrets set SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
-          supabase secrets set SUPABASE_SERVICE_ROLE="${{ secrets.SUPABASE_SERVICE_ROLE }}"
+          supabase secrets set SB_URL="${{ secrets.SUPABASE_URL }}"
+          supabase secrets set SB_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          supabase secrets set SB_SERVICE_ROLE="${{ secrets.SUPABASE_SERVICE_ROLE }}"
 
       - name: Deploy Edge Functions
         run: |
