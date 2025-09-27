@@ -70,13 +70,11 @@ Deno.serve(async (req) => {
     }
     const tokenJson = await tokenResp.json().catch(() => ({}));
     const token: string | undefined = tokenJson.token;
-    const privatetoken: string | undefined = tokenJson.privatetoken;
     if (!token) return new Response(JSON.stringify({ ok: false, error: "Invalid token response" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Encrypt tokens
     const aesKey = await importAesGcmKey(MOODLE_TOKEN_ENC_KEY);
     const tokenCipher = await encryptAesGcm(aesKey, token);
-    const privateTokenCipher = privatetoken ? await encryptAesGcm(aesKey, privatetoken) : null;
 
     // Get current user id from the provided JWT
     const { data: userInfo, error: userErr } = await supabase.auth.getUser();
