@@ -170,20 +170,20 @@ Deno.serve(async (req) => {
         )}&wsfunction=core_course_get_contents&courseid=${Number(c.id)}`,
       );
       for (const section of cc || []) {
-        const sectionId = Number(section.id ?? 0);
+        const sectionId = section.id != null ? Number(section.id) : null;
         const sectionName = section.name ?? null;
         for (const mod of section.modules ?? []) {
+          const extraPayload = { ...mod, sectionId, sectionName };
           const row = {
             user_id: userId,
             connection_id: connection.id,
             course_id: Number(c.id),
             section_id: sectionId,
-            section_name: sectionName,
             module_id: Number(mod.id),
             module_name: String(mod.name ?? "Module"),
             modname: mod.modname ?? null,
             url: mod.url ?? null,
-            extra: mod,
+            extra: extraPayload,
             updated_at: nowIso,
             created_at: nowIso,
           };
