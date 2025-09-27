@@ -58,6 +58,23 @@ export default function MoodleSettingsPage() {
     }
   }
 
+  async function runDiagnostics() {
+    setDiagLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("diag");
+      if (error) throw error;
+      setDiag(data);
+      toast({ title: "Diagnostics", description: "Diagnostics completed. See results below." });
+    } catch (e: any) {
+      setDiag(null);
+      setError(e.message || "Diagnostics failed");
+      toast({ title: "Diagnostics failed", description: e.message || "Diagnostics failed", variant: "destructive" });
+    } finally {
+      setDiagLoading(false);
+    }
+  }
+
   return (
     <div className="max-w-xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-6">Moodle Connection</h1>
