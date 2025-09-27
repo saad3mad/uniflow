@@ -42,3 +42,4 @@ jobs:
           supabase functions deploy moodle-assignments
           supabase functions deploy moodle-contents
           supabase functions deploy moodle-files
+          supabase functions deploy diag

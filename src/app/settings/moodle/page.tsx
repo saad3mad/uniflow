@@ -14,6 +14,8 @@ export default function MoodleSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diag, setDiag] = useState<any | null>(null);
 
   if (!user) {
     return (
@@ -98,6 +100,16 @@ export default function MoodleSettingsPage() {
         >
           {loading ? "Connecting & Syncing…" : "Connect & Sync"}
         </button>
+        <div className="pt-2 flex flex-col md:flex-row gap-2">
+          <button
+            onClick={runDiagnostics}
+            disabled={diagLoading}
+            className="btn-secondary w-full md:w-auto"
+            aria-busy={diagLoading}
+          >
+            {diagLoading ? "Running Diagnostics…" : "Run Diagnostics"}
+          </button>
+        </div>
         {msg && <p className="text-sm text-green-600">{msg}</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -105,6 +117,15 @@ export default function MoodleSettingsPage() {
       <p className="text-xs text-text-secondary mt-4">
         Your credentials are used only to obtain a Moodle web service token which is encrypted and stored securely.
       </p>
+
+      {diag && (
+        <div className="mt-6 border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-2 bg-background-secondary font-medium">Diagnostics Result</div>
+          <pre className="p-4 text-xs overflow-auto">
+{JSON.stringify(diag, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
