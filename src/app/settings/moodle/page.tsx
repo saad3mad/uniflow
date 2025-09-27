@@ -31,21 +31,27 @@ export default function MoodleSettingsPage() {
     setError(null);
     setMsg(null);
     try {
+      // ensure we have a valid session token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       // basic validation
       if (!/^https?:\/\//i.test(baseUrl.trim())) {
         throw new Error("Please enter a valid Moodle base URL starting with http(s)://");
       }
       // Connect via Supabase Edge Function
-      const { error: connectError } = await supabase.functions.invoke("moodle-connect", {
+      const { data: connectData, error: connectError } = await supabase.functions.invoke("moodle-connect", {
         body: { baseUrl: baseUrl, username, password },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (connectError) throw connectError;
       setMsg("Connected to Moodle successfully.");
       toast({ title: "Connected", description: "Moodle connection saved." });
 
       // Sync via Supabase Edge Function
-      const { error: syncError } = await supabase.functions.invoke("moodle-sync", {
+      const { data: syncData, error: syncError } = await supabase.functions.invoke("moodle-sync", {
         body: { baseUrl: baseUrl, verify: true },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (syncError) throw syncError;
       setMsg("Sync started/completed successfully.");
@@ -62,7 +68,11 @@ export default function MoodleSettingsPage() {
     setDiagLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("diag");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const { data, error } = await supabase.functions.invoke("diag", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       if (error) throw error;
       setDiag(data);
       toast({ title: "Diagnostics", description: "Diagnostics completed. See results below." });
