@@ -169,10 +169,22 @@ Deno.serve(async (req) => {
           token,
         )}&wsfunction=core_course_get_contents&courseid=${Number(c.id)}`,
       );
+      console.log("contents fetched", {
+        courseId: c.id,
+        sections: Array.isArray(cc) ? cc.length : 0,
+      });
       for (const section of cc || []) {
         const sectionId = section.id != null ? Number(section.id) : null;
         const sectionName = section.name ?? null;
         for (const mod of section.modules ?? []) {
+          if (mod?.id == null) {
+            console.warn("module missing id", {
+              courseId: c.id,
+              sectionId,
+              sectionName,
+            });
+            continue;
+          }
           const extraPayload = { ...mod, sectionId, sectionName };
           const row = {
             user_id: userId,
@@ -190,7 +202,15 @@ Deno.serve(async (req) => {
           const { error } = await supabaseAdmin
             .from("moodle_course_contents")
             .upsert(row, { onConflict: "user_id,course_id,module_id" });
-          if (!error) contentsCount++;
+          if (error) {
+            console.error("contents upsert error", {
+              courseId: c.id,
+              moduleId: mod.id,
+              error: error.message,
+            });
+            continue;
+          }
+          contentsCount++;
         }
       }
     }
