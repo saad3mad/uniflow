@@ -20,7 +20,11 @@ interface ContentItem {
 
 export default function CourseDetailPage() {
   const params = useParams();
-  const courseId = useMemo(() => Number(params?.courseId), [params]);
+  const courseId = useMemo(() => {
+    const raw = (params as any)?.courseId;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : NaN;
+  }, [params]);
   const { user } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -29,13 +33,17 @@ export default function CourseDetailPage() {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    if (!user || !courseId) return;
+    if (!user || !Number.isFinite(courseId)) return;
     (async () => {
       setLoading(true);
       setError(null);
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
         const { data, error } = await supabase.functions.invoke("moodle-contents", {
-          body: { courseId },
+          body: { courseId: courseId },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (error) throw error;
         setItems((data?.data as ContentItem[]) || []);
@@ -50,15 +58,24 @@ export default function CourseDetailPage() {
 
   async function handleSync() {
     if (!user) return;
+    if (!Number.isFinite(courseId)) {
+      setError("Invalid course. Please navigate back and open the course again.");
+      return;
+    }
     setSyncing(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       const { error: syncError } = await supabase.functions.invoke("moodle-sync", {
         body: { verify: true },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (syncError) throw syncError;
       const { data, error } = await supabase.functions.invoke("moodle-contents", {
-        body: { courseId },
+        body: { courseId: courseId },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
       setItems((data?.data as ContentItem[]) || []);
@@ -74,8 +91,12 @@ export default function CourseDetailPage() {
   async function openInBrowser(it: ContentItem) {
     if (!user || !it.moduleId) return;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       const { data, error } = await supabase.functions.invoke("moodle-files", {
         body: { moduleId: it.moduleId, action: "open" },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
       const url = (data as any)?.url as string | undefined;
@@ -89,8 +110,12 @@ export default function CourseDetailPage() {
   async function downloadFile(it: ContentItem) {
     if (!user || !it.moduleId) return;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       const { data, error } = await supabase.functions.invoke("moodle-files", {
         body: { moduleId: it.moduleId, action: "download" },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
       const url = (data as any)?.url as string | undefined;

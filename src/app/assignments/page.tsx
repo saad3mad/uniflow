@@ -38,7 +38,12 @@ export default function AssignmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("moodle-assignments");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
+      const { data, error } = await supabase.functions.invoke("moodle-assignments", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (error) throw error;
       setGroups((data?.data as Groups) || null);
     } catch (e: any) {
@@ -59,8 +64,12 @@ export default function AssignmentsPage() {
     setSyncing(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       const { error: syncError } = await supabase.functions.invoke("moodle-sync", {
         body: { verify: true },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (syncError) throw syncError;
       await load();
