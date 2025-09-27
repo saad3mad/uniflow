@@ -99,7 +99,6 @@ Deno.serve(async (req) => {
         user_id: userId,
         moodle_base_url: baseUrl.replace(/\/$/, ""),
         token_cipher: tokenCipher,
-        token_nonce: null,
         status: "active",
         last_verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

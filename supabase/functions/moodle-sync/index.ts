@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     // Find active connection
     const { data: connections, error: connErr } = await supabaseUser
       .from("moodle_connections")
-      .select("id, user_id, moodle_base_url, token_cipher, token_nonce")
+      .select("id, user_id, moodle_base_url, token_cipher")
       .eq("status", "active")
       .order("created_at", { ascending: true })
       .limit(1);
@@ -81,8 +81,7 @@ Deno.serve(async (req) => {
 
     const baseUrl: string = String(connection.moodle_base_url).replace(/\/$/, "");
     const aesKey = await importAesGcmKey(MOODLE_TOKEN_ENC_KEY);
-    const encrypted = connection.token_encrypted || connection.token_cipher;
-    if (!encrypted) throw new Error("Missing encrypted token on connection");
+    const encrypted = connection.token_cipher;
     const token = await decryptAesGcm(String(encrypted), aesKey);
 
     // 1) Site info (userid)
