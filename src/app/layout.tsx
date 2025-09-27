@@ -46,7 +46,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <AuthProvider>
             <Navbar />
-            <main className="min-h-screen">
+            {/* Add top padding to offset fixed navbar height (h-20 => ~80px) */}
+            <main className="min-h-screen pt-20">
               {children}
             </main>
             <Toaster />

@@ -4,14 +4,23 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
-    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const { courseId } = await req.json().catch(() => ({}));
     if (!courseId || typeof courseId !== "number") {
-      return new Response(JSON.stringify({ ok: false, error: "courseId is required" }), { status: 400 });
+      return new Response(JSON.stringify({ ok: false, error: "courseId is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -27,12 +36,10 @@ Deno.serve(async (req) => {
       .order("section_id", { ascending: true })
       .order("module_id", { ascending: true });
 
-    if (error) return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 400 });
+    if (error) return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    return new Response(JSON.stringify({ ok: true, data }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ ok: true, data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

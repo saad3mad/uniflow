@@ -6,6 +6,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function b64ToBytes(b64: string): Uint8Array {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
@@ -34,9 +40,12 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
-    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -44,7 +53,7 @@ Deno.serve(async (req) => {
     const MOODLE_TOKEN_ENC_KEY = Deno.env.get("MOODLE_TOKEN_ENC_KEY")!;
 
     if (!SUPABASE_SERVICE_ROLE) {
-      return new Response(JSON.stringify({ ok: false, error: "SUPABASE_SERVICE_ROLE is required for sync" }), { status: 500 });
+      return new Response(JSON.stringify({ ok: false, error: "SUPABASE_SERVICE_ROLE is required for sync" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -57,7 +66,7 @@ Deno.serve(async (req) => {
     // Identify user
     const { data: userInfo } = await supabaseUser.auth.getUser();
     const userId: string | undefined = userInfo?.user?.id;
-    if (!userId) return new Response(JSON.stringify({ ok: false, error: "Cannot determine user id" }), { status: 401 });
+    if (!userId) return new Response(JSON.stringify({ ok: false, error: "Cannot determine user id" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Find active connection
     const { data: connections, error: connErr } = await supabaseUser
@@ -193,9 +202,9 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ ok: true, counts: { courses: coursesCount, assignments: assignCount, contents: contentsCount } }),
-      { headers: { "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

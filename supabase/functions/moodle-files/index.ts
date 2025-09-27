@@ -4,6 +4,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function inferDisposition(contentType: string | null | undefined, filename: string) {
   const ct = (contentType || "").toLowerCase();
   const inline = ct.includes("pdf") || ct.startsWith("image/") || ct.startsWith("text/") || ct.includes("audio/") || ct.includes("video/");
@@ -12,13 +18,16 @@ function inferDisposition(contentType: string | null | undefined, filename: stri
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
-    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const { moduleId, action } = await req.json().catch(() => ({}));
     if (!moduleId || typeof moduleId !== "number") {
-      return new Response(JSON.stringify({ ok: false, error: "moduleId is required" }), { status: 400 });
+      return new Response(JSON.stringify({ ok: false, error: "moduleId is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -34,14 +43,14 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (error) return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 400 });
-    if (!data?.url) return new Response(JSON.stringify({ ok: false, error: "URL not found" }), { status: 404 });
+    if (error) return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!data?.url) return new Response(JSON.stringify({ ok: false, error: "URL not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Fetch upstream file
     const upstream = await fetch(data.url);
     if (!upstream.ok || !upstream.body) {
       const txt = await upstream.text().catch(() => "");
-      return new Response(JSON.stringify({ ok: false, error: `Upstream error ${upstream.status}: ${txt}` }), { status: 502 });
+      return new Response(JSON.stringify({ ok: false, error: `Upstream error ${upstream.status}: ${txt}` }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
@@ -52,9 +61,10 @@ Deno.serve(async (req) => {
     const headers = new Headers();
     headers.set("Content-Type", contentType);
     headers.set("Content-Disposition", disposition);
+    for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
     // Avoid leaking origin to upstream in client; we're proxying the stream back to the browser.
     return new Response(upstream.body, { status: 200, headers });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

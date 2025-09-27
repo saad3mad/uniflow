@@ -4,6 +4,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function base64ToBytes(b64: string): Uint8Array {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
@@ -29,13 +35,17 @@ async function encryptAesGcm(key: CryptoKey, plaintext: string): Promise<string>
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
-    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+    if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const { baseUrl, username, password } = await req.json().catch(() => ({}));
     if (!baseUrl || !username || !password) {
-      return new Response(JSON.stringify({ ok: false, error: "Missing baseUrl/username/password" }), { status: 400 });
+      return new Response(JSON.stringify({ ok: false, error: "Missing baseUrl/username/password" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -55,13 +65,13 @@ Deno.serve(async (req) => {
       const txt = await tokenResp.text();
       return new Response(
         JSON.stringify({ ok: false, error: `Moodle rejected credentials (${tokenResp.status}): ${txt}` }),
-        { status: 400 },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     const tokenJson = await tokenResp.json().catch(() => ({}));
     const token: string | undefined = tokenJson.token;
     const privatetoken: string | undefined = tokenJson.privatetoken;
-    if (!token) return new Response(JSON.stringify({ ok: false, error: "Invalid token response" }), { status: 400 });
+    if (!token) return new Response(JSON.stringify({ ok: false, error: "Invalid token response" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Encrypt tokens
     const aesKey = await importAesGcmKey(MOODLE_TOKEN_ENC_KEY);
@@ -81,7 +91,7 @@ Deno.serve(async (req) => {
         } catch {}
       }
     }
-    if (!userId) return new Response(JSON.stringify({ ok: false, error: "Cannot determine user id" }), { status: 401 });
+    if (!userId) return new Response(JSON.stringify({ ok: false, error: "Cannot determine user id" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Upsert connection
     const { error: upsertErr } = await supabase.from("moodle_connections").upsert(
@@ -96,10 +106,10 @@ Deno.serve(async (req) => {
       },
       { onConflict: "user_id,moodle_base_url" },
     );
-    if (upsertErr) return new Response(JSON.stringify({ ok: false, error: upsertErr.message }), { status: 400 });
+    if (upsertErr) return new Response(JSON.stringify({ ok: false, error: upsertErr.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
