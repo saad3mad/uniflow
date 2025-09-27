@@ -47,9 +47,9 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const SUPABASE_URL = Deno.env.get("SB_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SB_ANON_KEY")!;
-    const SUPABASE_SERVICE_ROLE = Deno.env.get("SB_SERVICE_ROLE");
+    const SUPABASE_URL = Deno.env.get("SB_URL") || Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SB_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SUPABASE_SERVICE_ROLE = Deno.env.get("SB_SERVICE_ROLE") || Deno.env.get("SUPABASE_SERVICE_ROLE");
     const MOODLE_TOKEN_ENC_KEY = Deno.env.get("MOODLE_TOKEN_ENC_KEY")!;
 
     if (!SUPABASE_SERVICE_ROLE) {
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     // Find active connection
     const { data: connections, error: connErr } = await supabaseUser
       .from("moodle_connections")
-      .select("id, moodle_base_url, token_encrypted, private_token_encrypted")
+      .select("id, user_id, moodle_base_url, token_encrypted, private_token_encrypted, token_cipher, token_nonce")
       .eq("status", "active")
       .order("created_at", { ascending: true })
       .limit(1);
@@ -81,7 +81,9 @@ Deno.serve(async (req) => {
 
     const baseUrl: string = String(connection.moodle_base_url).replace(/\/$/, "");
     const aesKey = await importAesGcmKey(MOODLE_TOKEN_ENC_KEY);
-    const token = await decryptAesGcm(String(connection.token_encrypted), aesKey);
+    const encrypted = connection.token_encrypted || connection.token_cipher;
+    if (!encrypted) throw new Error("Missing encrypted token on connection");
+    const token = await decryptAesGcm(String(encrypted), aesKey);
 
     // 1) Site info (userid)
     const siteInfo = await fetchJson(
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
 
     await supabaseAdmin
       .from("moodle_connections")
-      .update({ moodle_user_id, last_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({ last_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", connection.id)
       .eq("user_id", userId);
 
@@ -115,12 +117,8 @@ Deno.serve(async (req) => {
         fullname: String(c.fullname ?? ""),
         shortname: c.shortname ?? null,
         summary: c.summary ?? null,
-        visible: c.visible ?? null,
         progress: c.progress ?? null,
-        startdate: c.startdate ? new Date(c.startdate * 1000).toISOString() : null,
-        enddate: c.enddate ? new Date(c.enddate * 1000).toISOString() : null,
-        categoryid: c.categoryid ?? null,
-        raw: c,
+        last_sync_at: nowIso,
         updated_at: nowIso,
         created_at: nowIso,
       };
@@ -151,11 +149,9 @@ Deno.serve(async (req) => {
             course_id: courseId,
             name: String(a.name ?? "Assignment"),
             duedate: a.duedate ? new Date(a.duedate * 1000).toISOString() : null,
-            allowsubmissionsfromdate: a.allowsubmissionsfromdate ? new Date(a.allowsubmissionsfromdate * 1000).toISOString() : null,
-            cutoffdate: a.cutoffdate ? new Date(a.cutoffdate * 1000).toISOString() : null,
             grade: a.grade ?? null,
-            status: a?.introformat ? null : null,
-            raw: a,
+            status: null,
+            extra: a,
             updated_at: nowIso,
             created_at: nowIso,
           };
@@ -188,7 +184,7 @@ Deno.serve(async (req) => {
             module_name: String(mod.name ?? "Module"),
             modname: mod.modname ?? null,
             url: mod.url ?? null,
-            raw: mod,
+            extra: mod,
             updated_at: nowIso,
             created_at: nowIso,
           };

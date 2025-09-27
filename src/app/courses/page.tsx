@@ -29,7 +29,12 @@ export default function CoursesPage() {
       setLoading(true);
       setError(null);
       try {
-        const { data, error } = await supabase.functions.invoke("moodle-courses");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
+        const { data, error } = await supabase.functions.invoke("moodle-courses", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (error) throw error;
         setCourses((data?.data as Course[]) || []);
       } catch (e: any) {
@@ -46,11 +51,17 @@ export default function CoursesPage() {
     setSyncing(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
       const { error: syncError } = await supabase.functions.invoke("moodle-sync", {
         body: { verify: true },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (syncError) throw syncError;
-      const { data, error } = await supabase.functions.invoke("moodle-courses");
+      const { data, error } = await supabase.functions.invoke("moodle-courses", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (error) throw error;
       setCourses((data?.data as Course[]) || []);
       toast({ title: "Synced", description: "Courses updated." });
