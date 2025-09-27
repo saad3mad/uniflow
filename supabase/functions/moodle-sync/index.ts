@@ -47,9 +47,9 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const SUPABASE_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE");
+    const SUPABASE_URL = Deno.env.get("SB_URL")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SB_ANON_KEY")!;
+    const SUPABASE_SERVICE_ROLE = Deno.env.get("SB_SERVICE_ROLE");
     const MOODLE_TOKEN_ENC_KEY = Deno.env.get("MOODLE_TOKEN_ENC_KEY")!;
 
     if (!SUPABASE_SERVICE_ROLE) {

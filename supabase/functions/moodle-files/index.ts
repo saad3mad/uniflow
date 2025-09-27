@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "moduleId is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SUPABASE_URL = Deno.env.get("SB_URL")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SB_ANON_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
