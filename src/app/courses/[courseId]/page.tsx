@@ -216,22 +216,15 @@ export default function CourseDetailPage() {
     const hasFileUrl = Boolean(primary?.fileurl || it.url);
     const inlineTypes = ["pdf", "image/", "text/", "audio/", "video/"];
     const modname = (it.modname ?? "").toLowerCase();
-    const urlLower = (primary?.fileurl || it.url || "").toLowerCase();
 
-    const isMoodleRedirect = modname === "resource" || modname === "assignment" || urlLower.includes("/mod/");
-    if (isMoodleRedirect) {
+    if (modname !== "resource") {
       return { canOpen: false, canDownload: false, forceOpen: false };
     }
 
-    const isExternalLink = modname === "url" || (!!urlLower && urlLower.startsWith("http"));
     const canOpenInline = Boolean(
       hasFileUrl && inlineTypes.some((fragment) => (mimetype ?? "").toLowerCase().includes(fragment)),
     );
-    const canDownloadFile = Boolean(hasFileUrl && !isExternalLink);
-
-    if (isExternalLink && !hasFileUrl) {
-      return { canOpen: true, canDownload: false, forceOpen: true };
-    }
+    const canDownloadFile = Boolean(hasFileUrl);
 
     return {
       canOpen: canOpenInline,
