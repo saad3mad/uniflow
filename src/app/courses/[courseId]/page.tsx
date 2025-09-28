@@ -215,14 +215,25 @@ export default function CourseDetailPage() {
     const mimetype: string | null = primary?.mimetype ?? null;
     const hasFileUrl = Boolean(primary?.fileurl || it.url);
     const inlineTypes = ["pdf", "image/", "text/", "audio/", "video/"];
-    const canOpen = Boolean(
+    const modname = (it.modname ?? "").toLowerCase();
+    const urlLower = (primary?.fileurl || it.url || "").toLowerCase();
+
+    const isMoodleDoc = urlLower.includes("moodle") || modname === "resource" || modname === "assignment";
+    const isExternalLink = modname === "url" || (!!urlLower && !isMoodleDoc);
+
+    const canOpenInline = Boolean(
       hasFileUrl &&
-        (mimetype
-          ? inlineTypes.some((fragment) => mimetype.toLowerCase().includes(fragment))
-          : (it.modname ?? "").toLowerCase() !== "assignment"),
+        inlineTypes.some((fragment) => (mimetype ?? "").toLowerCase().includes(fragment)) &&
+        !isMoodleDoc,
     );
-    const canDownload = Boolean(hasFileUrl);
-    return { canOpen, canDownload };
+    const canOpenExternal = Boolean(isExternalLink);
+    const canDownloadFile = Boolean(hasFileUrl && !isMoodleDoc);
+
+    return {
+      canOpen: canOpenInline || canOpenExternal,
+      canDownload: canDownloadFile,
+      forceOpen: canOpenExternal && !canOpenInline,
+    };
   }
 
   if (!user) {
@@ -270,7 +281,7 @@ export default function CourseDetailPage() {
               </div>
               <div className="divide-y divide-border">
                 {arr.map((it) => {
-                  const { canOpen, canDownload } = deriveActions(it);
+                  const { canOpen, canDownload, forceOpen } = deriveActions(it);
                   const showActions = canOpen || canDownload;
                   return (
                     <div key={it.moduleId} className="flex items-center justify-between px-4 py-3 hover:bg-background-tertiary transition-colors">
@@ -280,7 +291,11 @@ export default function CourseDetailPage() {
                       </div>
                       {showActions && (
                         <div className="flex gap-2 shrink-0">
-                          {canOpen && <button onClick={() => openInBrowser(it)} className="btn-secondary">Open</button>}
+                          {canOpen && (
+                            <button onClick={() => openInBrowser(it)} className="btn-secondary">
+                              {forceOpen ? "Open Link" : "Open"}
+                            </button>
+                          )}
                           {canDownload && <button onClick={() => downloadFile(it)} className="btn-primary">Download</button>}
                         </div>
                       )}
