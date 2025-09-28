@@ -218,21 +218,25 @@ export default function CourseDetailPage() {
     const modname = (it.modname ?? "").toLowerCase();
     const urlLower = (primary?.fileurl || it.url || "").toLowerCase();
 
-    const isMoodleDoc = urlLower.includes("moodle") || modname === "resource" || modname === "assignment";
-    const isExternalLink = modname === "url" || (!!urlLower && !isMoodleDoc);
+    const isMoodleRedirect = modname === "resource" || modname === "assignment" || urlLower.includes("/mod/");
+    if (isMoodleRedirect) {
+      return { canOpen: false, canDownload: false, forceOpen: false };
+    }
 
+    const isExternalLink = modname === "url" || (!!urlLower && urlLower.startsWith("http"));
     const canOpenInline = Boolean(
-      hasFileUrl &&
-        inlineTypes.some((fragment) => (mimetype ?? "").toLowerCase().includes(fragment)) &&
-        !isMoodleDoc,
+      hasFileUrl && inlineTypes.some((fragment) => (mimetype ?? "").toLowerCase().includes(fragment)),
     );
-    const canOpenExternal = Boolean(isExternalLink);
-    const canDownloadFile = Boolean(hasFileUrl && !isMoodleDoc);
+    const canDownloadFile = Boolean(hasFileUrl && !isExternalLink);
+
+    if (isExternalLink && !hasFileUrl) {
+      return { canOpen: true, canDownload: false, forceOpen: true };
+    }
 
     return {
-      canOpen: canOpenInline || canOpenExternal,
+      canOpen: canOpenInline,
       canDownload: canDownloadFile,
-      forceOpen: canOpenExternal && !canOpenInline,
+      forceOpen: false,
     };
   }
 
