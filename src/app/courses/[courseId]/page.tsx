@@ -33,6 +33,11 @@ export default function CourseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [courseName, setCourseName] = useState<string>("");
+  const functionsBaseUrl = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!base) return null;
+    return `${base.replace(/\/$/, "")}/functions/v1/moodle-files`;
+  }, []);
 
   useEffect(() => {
     if (!user || !Number.isFinite(courseId)) return;
@@ -134,19 +139,40 @@ export default function CourseDetailPage() {
     }
   }
 
-  async function openInBrowser(it: ContentItem) {
-    if (!user || !it.moduleId) return;
+  async function fetchModuleStream(moduleId: number, action: "open" | "download") {
+    if (!functionsBaseUrl) throw new Error("Supabase URL is not configured");
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
-      const { data, error } = await supabase.functions.invoke("moodle-files", {
-        body: { moduleId: it.moduleId, action: "open" },
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const res = await fetch(functionsBaseUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ moduleId, action }),
       });
-      if (error) throw error;
-      const url = (data as any)?.url as string | undefined;
-      if (url) window.open(url, "_blank");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const fileName = res.headers.get("X-File-Name") || `file-${moduleId}`;
+      return { blob, fileName, contentType: res.headers.get("Content-Type") || "application/octet-stream" };
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async function openInBrowser(it: ContentItem) {
+    if (!user || !it.moduleId) return;
+    try {
+      const result = await fetchModuleStream(it.moduleId, "open");
+      if (!result) return;
+      const blobUrl = URL.createObjectURL(result.blob);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e) {
       console.error(e);
       toast({ title: "Open failed", description: (e as any)?.message || "", variant: "destructive" });
@@ -156,24 +182,17 @@ export default function CourseDetailPage() {
   async function downloadFile(it: ContentItem) {
     if (!user || !it.moduleId) return;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("You are not signed in. Please sign in and try again.");
-      const { data, error } = await supabase.functions.invoke("moodle-files", {
-        body: { moduleId: it.moduleId, action: "download" },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (error) throw error;
-      const url = (data as any)?.url as string | undefined;
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${it.moduleName || `file-${it.moduleId}`}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        toast({ title: "Download started" });
-      }
+      const result = await fetchModuleStream(it.moduleId, "download");
+      if (!result) return;
+      const blobUrl = URL.createObjectURL(result.blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${result.fileName}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+      toast({ title: "Download started" });
     } catch (e) {
       console.error(e);
       toast({ title: "Download failed", description: (e as any)?.message || "", variant: "destructive" });
