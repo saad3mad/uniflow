@@ -16,6 +16,7 @@ interface ContentItem {
   moduleName?: string;
   modname?: string;
   url?: string;
+  extra?: any;
 }
 
 export default function CourseDetailPage() {
@@ -31,6 +32,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [courseName, setCourseName] = useState<string>("");
 
   useEffect(() => {
     if (!user || !Number.isFinite(courseId)) return;
@@ -51,14 +53,23 @@ export default function CourseDetailPage() {
           userId: row.user_id,
           connectionId: row.connection_id,
           courseId: Number(row.course_id),
-          sectionId: row.section_id ?? undefined,
-          sectionName: row.section_name ?? undefined,
-          moduleId: row.module_id ?? undefined,
-          moduleName: row.module_name ?? undefined,
-          modname: row.modname ?? undefined,
-          url: row.url ?? undefined,
+          sectionId: row.section_id != null ? Number(row.section_id) : undefined,
+          sectionName: row.section_name ?? row.extra?.sectionName ?? undefined,
+          moduleId: row.module_id != null ? Number(row.module_id) : undefined,
+          moduleName: row.module_name ?? row.extra?.moduleName ?? undefined,
+          modname: row.modname ?? row.extra?.modname ?? undefined,
+          url: row.url ?? row.extra?.url ?? undefined,
+          extra: row.extra ?? undefined,
         }));
         setItems(normalized);
+        const { data: courseRow, error: courseError } = await supabase
+          .from("moodle_courses")
+          .select("fullname")
+          .eq("course_id", courseId)
+          .maybeSingle();
+        if (!courseError && courseRow?.fullname) {
+          setCourseName(courseRow.fullname);
+        }
       } catch (e: any) {
         setError(e.message || "Failed to load course contents");
         toast({ title: "Failed to load", description: e.message || "", variant: "destructive" });
@@ -95,14 +106,25 @@ export default function CourseDetailPage() {
         userId: row.user_id,
         connectionId: row.connection_id,
         courseId: Number(row.course_id),
-        sectionId: row.section_id ?? undefined,
-        sectionName: row.section_name ?? undefined,
-        moduleId: row.module_id ?? undefined,
-        moduleName: row.module_name ?? undefined,
-        modname: row.modname ?? undefined,
-        url: row.url ?? undefined,
+        sectionId: row.section_id != null ? Number(row.section_id) : undefined,
+        sectionName: row.section_name ?? row.extra?.sectionName ?? undefined,
+        moduleId: row.module_id != null ? Number(row.module_id) : undefined,
+        moduleName: row.module_name ?? row.extra?.moduleName ?? undefined,
+        modname: row.modname ?? row.extra?.modname ?? undefined,
+        url: row.url ?? row.extra?.url ?? undefined,
+        extra: row.extra ?? undefined,
       }));
       setItems(normalized);
+      if (!courseName) {
+        const { data: courseRow, error: courseError } = await supabase
+          .from("moodle_courses")
+          .select("fullname")
+          .eq("course_id", courseId)
+          .maybeSingle();
+        if (!courseError && courseRow?.fullname) {
+          setCourseName(courseRow.fullname);
+        }
+      }
       toast({ title: "Synced", description: "Course contents updated." });
     } catch (e: any) {
       setError(e.message || "Sync failed");
@@ -161,7 +183,7 @@ export default function CourseDetailPage() {
   const grouped = useMemo(() => {
     const map = new Map<number, ContentItem[]>();
     for (const it of items) {
-      const key = it.sectionId || 0;
+      const key = it.sectionId ?? 0;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(it);
     }
@@ -180,7 +202,7 @@ export default function CourseDetailPage() {
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Course {courseId}</h1>
+        <h1 className="text-2xl font-semibold">{courseName || `Course ${courseId}`}</h1>
         <button
           onClick={handleSync}
           disabled={syncing}
