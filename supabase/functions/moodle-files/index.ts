@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { moduleId } = await req.json().catch(() => ({}));
+    const { moduleId, action } = await req.json().catch(() => ({}));
     if (!moduleId || typeof moduleId !== "number") {
       return new Response(JSON.stringify({ ok: false, error: "moduleId is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -45,10 +45,24 @@ Deno.serve(async (req) => {
 
     if (error) return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (!data?.url) return new Response(JSON.stringify({ ok: false, error: "URL not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    return new Response(
-      JSON.stringify({ ok: true, url: data.url, moduleName: data.module_name ?? null }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+
+    const upstream = await fetch(data.url);
+    if (!upstream.ok || !upstream.body) {
+      const txt = await upstream.text().catch(() => "");
+      return new Response(JSON.stringify({ ok: false, error: `Upstream error ${upstream.status}: ${txt}` }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const fileName = data.module_name || `file-${moduleId}`;
+    const isInline = (action ?? "open") === "open";
+    const disposition = `${isInline ? "inline" : "attachment"}; filename="${fileName.replace(/[^a-zA-Z0-9._-]+/g, "_")}"`;
+
+    const headers = new Headers(corsHeaders);
+    headers.set("Content-Type", contentType);
+    headers.set("Content-Disposition", disposition);
+    headers.set("X-File-Name", fileName);
+
+    return new Response(upstream.body, { status: 200, headers });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
