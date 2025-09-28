@@ -209,6 +209,22 @@ export default function CourseDetailPage() {
     return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   }, [items]);
 
+  function deriveActions(it: ContentItem) {
+    const contents = Array.isArray(it.extra?.contents) ? it.extra.contents.filter((c: any) => c?.fileurl) : [];
+    const primary = contents[0] || null;
+    const mimetype: string | null = primary?.mimetype ?? null;
+    const hasFileUrl = Boolean(primary?.fileurl || it.url);
+    const inlineTypes = ["pdf", "image/", "text/", "audio/", "video/"];
+    const canOpen = Boolean(
+      hasFileUrl &&
+        (mimetype
+          ? inlineTypes.some((fragment) => mimetype.toLowerCase().includes(fragment))
+          : (it.modname ?? "").toLowerCase() !== "assignment"),
+    );
+    const canDownload = Boolean(hasFileUrl);
+    return { canOpen, canDownload };
+  }
+
   if (!user) {
     return (
       <div className="max-w-5xl mx-auto p-6">
@@ -253,21 +269,26 @@ export default function CourseDetailPage() {
                 {arr[0]?.sectionName || `Section ${sectionId}`}
               </div>
               <div className="divide-y divide-border">
-                {arr.map((it) => (
-                  <div key={it.moduleId} className="flex items-center justify-between px-4 py-3 hover:bg-background-tertiary transition-colors">
-                    <div className="truncate pr-4">
-                      <div className="font-medium truncate">{it.moduleName || it.modname || `Module ${it.moduleId}`}</div>
-                      {it.url && <div className="text-xs text-text-secondary truncate">{it.url}</div>}
+                {arr.map((it) => {
+                  const { canOpen, canDownload } = deriveActions(it);
+                  const showActions = canOpen || canDownload;
+                  return (
+                    <div key={it.moduleId} className="flex items-center justify-between px-4 py-3 hover:bg-background-tertiary transition-colors">
+                      <div className="truncate pr-4">
+                        <div className="font-medium truncate">{it.moduleName || it.modname || `Module ${it.moduleId}`}</div>
+                        {it.url && <div className="text-xs text-text-secondary truncate">{it.url}</div>}
+                      </div>
+                      {showActions && (
+                        <div className="flex gap-2 shrink-0">
+                          {canOpen && <button onClick={() => openInBrowser(it)} className="btn-secondary">Open</button>}
+                          {canDownload && <button onClick={() => downloadFile(it)} className="btn-primary">Download</button>}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button onClick={() => openInBrowser(it)} className="btn-secondary">Open</button>
-                      <button onClick={() => downloadFile(it)} className="btn-primary">Download</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-          ))}
         </div>
       )}
     </div>
